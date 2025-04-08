@@ -1,43 +1,48 @@
-import smbus
-from time import sleep
+import schedule
+import time
 import pigpio
 
 
+class LightScheduler:
+    def __init__(self, GPIO_pin):
+        self.duty = 0
+        self.GPIO_pin = GPIO_pin
+        self.pi = pigpio.pi()
+        self.pi.set_PWM_range(self.GPIO_pin, 100)
+        self.init_schedule()
+
+    def init_schedule(self):
+        # Increase brightness: :01, :02, :03, :04 each minute
+        schedule.every().minute.at(":01").do(self.bright_increase)
+        schedule.every().minute.at(":02").do(self.bright_increase)
+        schedule.every().minute.at(":03").do(self.bright_increase)
+        schedule.every().minute.at(":04").do(self.bright_increase)
+
+        # Decrease brightness: :05, :06, :07, :08 each minute
+        schedule.every().minute.at(":05").do(self.bright_decrease)
+        schedule.every().minute.at(":06").do(self.bright_decrease)
+        schedule.every().minute.at(":07").do(self.bright_decrease)
+        schedule.every().minute.at(":08").do(self.bright_decrease)
+
+    def bright_increase(self):
+        if self.duty < 100:
+            self.duty += 10
+            self.pi.set_PWM_dutycycle(self.GPIO_pin, self.duty)
+            print(f"Increasing brightness: {self.duty}%")
+        else:
+            print("Brightness already at maximum.")
+
+    def bright_decrease(self):
+        if self.duty > 0:
+            self.duty -= 10
+            self.pi.set_PWM_dutycycle(self.GPIO_pin, self.duty)
+            print(f"Decreasing brightness: {self.duty}%")
+        else:
+            print("Brightness already at minimum.")
 
 
-
-# Configure ADC on pin 32
-soil_moisture = ADC(Pin(32))
-soil_moisture.atten(ADC.ATTN_11DB)  # Set attenuation for full 0-3.3V range
-
-# Calibration values (adjust these based on actual readings)
-DRY_VALUE = 4095   # Sensor value in dry air
-WET_VALUE = 3805 
-
-class MCP3021:
-    bus = smbus.SMBus(1)
-   
-    def __init__(self, address = 0x4B):
-        self.address = address
-   
-    def read_raw(self):
-        # Reads word (16 bits) as int
-        rd = self.bus.read_word_data(self.address, 0)
-        # Exchanges upper and lower bytes
-        data = ((rd & 0xFF) << 8) | ((rd & 0xFF00) >> 8)
-        # Ignores two least significiant bits
-        return data >> 2
-
-adc = MCP3021()
-
-
-
-
-while True:
-    raw = adc.read_raw()
-
-    moisture_percentage = ((DRY_VALUE - raw) * 100.0) / (DRY_VALUE - WET_VALUE)
-
-    print(f"Raw: {raw}, Moisture: {moisture_percentage:.2f}%")
-    print("Raw :", raw)
-    time.sleep(1)
+if __name__ == "__main__":
+    lamp = LightScheduler(13)
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
